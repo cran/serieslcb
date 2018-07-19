@@ -11,6 +11,8 @@
 
 
   MonteCarlo <- getShinyOption("MonteCarlo", default=1000)
+  backup.method <- getShinyOption("backup.method", default=lindstrom_madden_AC)
+  use.backup <- getShinyOption("use.backup", default=TRUE)
 
 
   ## input is results from main() function
@@ -18,8 +20,8 @@
   summary.LCB <- function(results, alpha, delta, mode){
     p.mat <- results$"p.mat"
     if(is.matrix(p.mat)==F) p.mat <- t(p.mat)
-    num.p <- nrow(p.mat)
     big.list <- results$"big.list"
+    num.p <- nrow(p.mat)
     M <- ncol(big.list[[1]])
     M.names <- colnames(big.list[[1]])
     p.names <- NULL
@@ -29,13 +31,15 @@
     cov.minus.mat <- array(NA, dim=c(num.p, M), dimnames=list(p.names, M.names))
     cov.plus.mat <- array(NA, dim=c(num.p, M), dimnames=list(p.names, M.names))
 
+    delta.fix <- delta
     delta.hold <- 0 #place-holding delta, because may increase delta
     who.made.it <- NULL
     ranked.methods <- NULL #keep track of methods as delta increases from 0
     ranked.deltas <- NULL #corresponding delta values for the ranked methods
     out.list <- vector("list", length=M)
     out.list.ind <- 1
-
+    out <- list(NULL)
+    prepare.to.break <- FALSE
     ## this newer "best" is going to be the RANKED version.
     ## The user's delta value is the largest tolerable delta value to pass a method
     ## Any methods that pass for this largest value will be ranked according to their
@@ -44,49 +48,58 @@
     ## that's when we can cut-off all the methods that are above the input delta
     if(mode=="best"){
       # calculate all LCB avg's and delta coverages
-      while(delta.hold<=delta){
-        delta.hold <- delta.hold+.001
-        for(j in 1:num.p){
-          Rs <- prod(p.mat[j,])
-          LCB.mat <- big.list[[j]]
-          LCB.avg.mat[j,] <- colMeans(LCB.mat)
-          cov0.mat[j,] <- colMeans(apply(X=LCB.mat, MARGIN=2, FUN="<", Rs)) #regular coverage
-          cov.minus.mat[j,] <- colMeans(apply(X=LCB.mat, MARGIN=2, FUN="<", Rs-delta.hold)) #minus delta coverage
-          cov.plus.mat[j,] <- colMeans(apply(X=LCB.mat, MARGIN=2, FUN="<", Rs+delta.hold)) #plus delta coverage
+
+      while(is.null(out[[1]])){
+        if( delta.hold>=delta ){
+          delta.fix <- 1
+          prepare.to.break <- TRUE
         }
 
-        #method is "good" if satisifies both coverage conditions across all p-vectors
-        first <- colSums((cov0.mat>=(1-alpha)) & (cov.minus.mat<(1-alpha)))
-        second <- colSums((cov0.mat<(1-alpha)) & (cov.plus.mat>=(1-alpha)))
-        made.it <- (first+second)>=num.p
-        sum.made.it <- sum(made.it)
+        while(delta.hold<delta.fix){
+          delta.hold <- delta.hold+.0001
+          for(j in 1:num.p){
+            Rs <- prod(p.mat[j,])
+            LCB.mat <- big.list[[j]]
+            LCB.avg.mat[j,] <- colMeans(LCB.mat)
+            cov0.mat[j,] <- colMeans(apply(X=LCB.mat, MARGIN=2, FUN="<", Rs)) #regular coverage
+            cov.minus.mat[j,] <- colMeans(apply(X=LCB.mat, MARGIN=2, FUN="<", Rs-delta.hold)) #minus delta coverage
+            cov.plus.mat[j,] <- colMeans(apply(X=LCB.mat, MARGIN=2, FUN="<", Rs+delta.hold)) #plus delta coverage
+          }
 
-        if(sum.made.it>0){
-          for(s in 1:sum.made.it){
-            this.method <- M.names[s]
-            if(!(this.method %in% ranked.methods)){
-              summary <- rbind(colMeans(LCB.avg.mat), colMeans(cov0.mat),
-                               colMeans(cov.minus.mat), colMeans(cov.plus.mat))
-              summary <- rbind(summary, rep(delta.hold, ncol(summary)))
-              rownames(summary) <- c("Average LCB", "Coverage", "Delta Coverage (minus)",
-                                     "Delta Coverage (plus)", "Delta Value")
-              out.list[[out.list.ind]] <- cbind(summary[c(1,2,5), s, drop=FALSE])
-              out.list.ind <- out.list.ind + 1
+          #method is "good" if satisifies both coverage conditions across all p-vectors
+          first <- colSums((cov0.mat>=(1-alpha)) & (cov.minus.mat<(1-alpha)))
+          second <- colSums((cov0.mat<(1-alpha)) & (cov.plus.mat>=(1-alpha)))
+          made.it <- (first+second)>=num.p
+          sum.made.it <- sum(made.it)
 
-              ranked.methods <- c(ranked.methods, this.method)
-              ranked.deltas <- c(ranked.deltas, delta.hold)
+          if(sum.made.it>0){
+            for(s in which(made.it)){
+              this.method <- M.names[s]
+              if(!(this.method %in% ranked.methods)){
+                summary <- rbind(colMeans(LCB.avg.mat), colMeans(cov0.mat),
+                                 colMeans(cov.minus.mat), colMeans(cov.plus.mat))
+                summary <- rbind(summary, rep(delta.hold, ncol(summary)))
+                rownames(summary) <- c("Average LCB", "Coverage", "Delta Coverage (minus)",
+                                       "Delta Coverage (plus)", "Delta Value")
+                out.list[[out.list.ind]] <- cbind(summary[c(1,2,5), s, drop=FALSE])
+                out.list.ind <- out.list.ind + 1
 
+                ranked.methods <- c(ranked.methods, this.method)
+                ranked.deltas <- c(ranked.deltas, delta.hold)
+
+              }
             }
           }
+        if(prepare.to.break){
+          if(!is.null(out.list[[1]])) break
         }
 
+        }
+
+        out <- out.list
 
       }
 
-      out <- out.list
-      #good.ind <- !sapply(out.list, is.null)
-      #if(sum(good.ind)>0) out <- out.list[good.ind]
-      #if(sum(good.ind)==0) out <- "No methods passed"
     }
 
 
@@ -422,8 +435,7 @@
             foo <- NULL
             for(b in 1:nrow(data.list[[z]])){
               count <- count + 1
-              foo[b] <- MASTER.list[[m]](s=data.list[[z]][b,], n=user$"n", alpha=user$"alpha", MonteCarlo=MonteCarlo)
-              #if(foo[b]==1) foo[b] <- MANNNGRUBS???
+              foo[b] <- MASTER.list[[m]](s=data.list[[z]][b,], n=user$"n", alpha=user$"alpha", MonteCarlo=MonteCarlo, use.backup=use.backup, backup.method=backup.method)
               incProgress(1/total, detail = paste(100*round(count/total, 2), "%", sep=""))
             }
             hold$"LCB"[[z]][,m] <- foo
@@ -541,8 +553,10 @@
       summary <- handle()$"summary"
       delta.vec <- do.call(cbind, summary)[3,]
 
-      if(length(delta.vec)==0) out <- "Consider a larger value of delta."
-      if(length(delta.vec)>0) out <- "Displaying all methods (in ranked order) which passed for a delta smaller than or equal to the input delta value."
+      #if(length(delta.vec)==0) out <- "Consider a larger value of delta."
+      if(length(delta.vec)>0) out <- "Displaying all methods (in ranked order) which passed for a delta smaller input delta value."
+
+      if(delta.vec[1]>user$"delta") out <- "Displaying the best method(s). Note that delta was increased by .0001 until at least one method passed."
 
       if(user$"radio" == "detailed"){
         out <- "Results for each p-vector combination are displayed. Delta coveraged are calculated using the input delta value."

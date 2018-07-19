@@ -4,7 +4,7 @@
 \alias{normal_approximation}
 \title{Normal approximation method}
 \usage{
-normal_approximation(s, n, alpha, ...)
+normal_approximation(s, n, alpha, use.backup = FALSE, backup.method, ...)
 }
 \arguments{
 \item{s}{Vector of successes.}
@@ -12,6 +12,10 @@ normal_approximation(s, n, alpha, ...)
 \item{n}{Vector of sample sizes.}
 
 \item{alpha}{The significance level; to calculate a 100(1-\eqn{\alpha})\% lower confidence bound.}
+
+\item{use.backup}{If TRUE, then a backup.method in the will be used for the methods with calculate LCB = 1 in the case of no failures across all components. If FALSE (default), no backup.method is used.}
+
+\item{backup.method}{The backup method which is used for the methods which calculate LCB = 1 in the case of zero failures. Use function name.}
 
 \item{...}{Additional arguments to be ignored.}
 }

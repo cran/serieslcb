@@ -110,18 +110,22 @@ chao_huwang <- function(s, n, alpha, MonteCarlo, ...){
 #' @param s Vector of successes.
 #' @param n Vector of sample sizes.
 #' @param alpha The significance level; to calculate a 100(1-\eqn{\alpha})\% lower confidence bound.
+#' @param use.backup If TRUE, then a backup.method in the will be used for the methods with calculate LCB = 1 in the case of no failures across all components. If FALSE (default), no backup.method is used.
+#' @param backup.method The backup method which is used for the methods which calculate LCB = 1 in the case of zero failures. Use function name.
 #' @param ... Additional arguments to be ignored.
 #' @return The 100(1-\eqn{\alpha})\% lower confidence bound.
 #' @export
 #' @examples
 #' coit(s=c(35, 97, 59), n=c(35, 100, 60), alpha=.10)
-coit <- function(s, n, alpha, ...){
+coit <- function(s, n, alpha, use.backup=FALSE, backup.method, ...){
   Ri <- s/n
   var.Ri <- Ri*(1-Ri)/n
   Rs <- prod(Ri)
   var.Rs <- prod(Ri^2 + var.Ri) - prod(Ri^2)
   sig2 <- log(1 + var.Rs/(Rs^2))
-  return(Rs*exp(.5*sig2 - qnorm(1-alpha)*sqrt(sig2)))
+  out <- Rs*exp(.5*sig2 - qnorm(1-alpha)*sqrt(sig2))
+  if( (sum(s-n)==0) & use.backup  ) out <- backup.method(s=s, n=n, alpha=alpha)
+  return(out)
 }
 
 #' Easterling's method
@@ -200,17 +204,21 @@ lindstrom_madden_AC <- function(s, n, alpha, ...){
 #' @param s Vector of successes.
 #' @param n Vector of sample sizes.
 #' @param alpha The significance level; to calculate a 100(1-\eqn{\alpha})\% lower confidence bound.
+#' @param use.backup If TRUE, then a backup.method in the will be used for the methods with calculate LCB = 1 in the case of no failures across all components. If FALSE (default), no backup.method is used.
+#' @param backup.method The backup method which is used for the methods which calculate LCB = 1 in the case of zero failures. Use function name.
 #' @param ... Additional arguments to be ignored.
 #' @return The 100(1-\eqn{\alpha})\% lower confidence bound.
 #' @export
 #' @examples
 #' normal_approximation(s=c(35, 97, 59), n=c(35, 100, 60), alpha=.10)
-normal_approximation <- function(s, n, alpha, ...){
+normal_approximation <- function(s, n, alpha, use.backup=FALSE, backup.method, ...){
   phat <- s/n
   var.p <- phat*(1-phat)/n
   var <- vector(mode='numeric', length=length(n))
   for(j in 1:length(n)) var[j] <- prod(phat[-j])^2 * var.p[j]
-  return(prod(phat) + qnorm(alpha)*sqrt(sum(var)))
+  out <- prod(phat) + qnorm(alpha)*sqrt(sum(var))
+  if( (sum(s-n)==0) & use.backup  ) out <- backup.method(s=s, n=n, alpha=alpha)
+  return(out)
 }
 
 
@@ -235,13 +243,15 @@ madansky.fun <- function(lam, s, n, alpha){
 #' @param s Vector of successes.
 #' @param n Vector of sample sizes.
 #' @param alpha The significance level; to calculate a 100(1-\eqn{\alpha})\% lower confidence bound.
+#' @param use.backup If TRUE, then a backup.method in the will be used for the methods with calculate LCB = 1 in the case of no failures across all components. If FALSE (default), no backup.method is used.
+#' @param backup.method The backup method which is used for the methods which calculate LCB = 1 in the case of zero failures. Use function name.
 #' @param ... Additional arguments to be ignored.
 #' @return The 100(1-\eqn{\alpha})\% lower confidence bound. Note that if there are zero observed
 #'     failures across all components, the output is LCB = 0.
 #' @export
 #' @examples
 #' madansky(s=c(35, 97, 59), n=c(35, 100, 60), alpha=.10)
-madansky <- function(s, n, alpha, ...){
+madansky <- function(s, n, alpha, use.backup=FALSE, backup.method, ...){
   # this returns a one-sided lower LCB only
   # looks like we're doing lindstrom-madden in the case of zero failures across all components...
   out <- 1 #### this is what will be ouput if there are zero failures across all components!
@@ -258,25 +268,30 @@ madansky <- function(s, n, alpha, ...){
       out <- prod((ss-lam2)/(nn-lam2))
     }
   }
+  if( (sum(s-n)==0) & use.backup  ) out <- backup.method(s=s, n=n, alpha=alpha)
   return(out)
 }
 
-#' Myhre and Rennie method 1
+#' Myhre and Rennie (modified ML) method
 #'
-#' Calculate a binomial series lower confidence bound using the Myhre-Rennie 1 method (1986).
+#' Calculate a binomial series lower confidence bound using the Myhre-Rennie (modified ML) method (1986).
 #'
 #' @param s Vector of successes.
 #' @param n Vector of sample sizes.
 #' @param alpha The significance level; to calculate a 100(1-\eqn{\alpha})\% lower confidence bound.
+#' @param use.backup If TRUE, then a backup.method in the will be used for the methods with calculate LCB = 1 in the case of no failures across all components. If FALSE (default), no backup.method is used.
+#' @param backup.method The backup method which is used for the methods which calculate LCB = 1 in the case of zero failures. Use function name.
 #' @param ... Additional arguments to be ignored.
 #' @return The 100(1-\eqn{\alpha})\% lower confidence bound.
 #' @export
 #' @examples
 #' myhre_rennie1(s=c(35, 97, 59), n=c(35, 100, 60), alpha=.10)
-myhre_rennie1 <- function(s, n, alpha, ...){
+myhre_rennie1 <- function(s, n, alpha, use.backup=FALSE, backup.method, ...){
   p <- s/n
   star <- n*(mean(s) + s)/(mean(s)/mean(p) + n)
-  return(madansky(s=star, n=n, alpha=alpha))
+  out <- madansky(s=star, n=n, alpha=alpha)
+  if( (sum(s-n)==0) & use.backup  ) out <- backup.method(s=s, n=n, alpha=alpha)
+  return(out)
 }
 
 #' Function of \eqn{\beta} in the Myhre-Rennie 2 method
@@ -291,24 +306,28 @@ mr.fun <- function(beta, s, n){
   prod((beta + s)/(mean(n) + n)) - prod(s/n)
 }
 
-#' Myhre and Rennie method 2
+#' Myhre and Rennie (reliability invariant) method
 #'
-#' Calculate a binomial series lower confidence bound using the Myhre-Rennie 2 method (1986).
+#' Calculate a binomial series lower confidence bound using the Myhre-Rennie (reliability invariant) method (1986).
 #'
 #' @param s Vector of successes.
 #' @param n Vector of sample sizes.
 #' @param alpha The significance level; to calculate a 100(1-\eqn{\alpha})\% lower confidence bound.
+#' @param use.backup If TRUE, then a backup.method in the will be used for the methods with calculate LCB = 1 in the case of no failures across all components. If FALSE (default), no backup.method is used.
+#' @param backup.method The backup method which is used for the methods which calculate LCB = 1 in the case of zero failures. Use function name.
 #' @param ... Additional arguments to be ignored.
 #' @return The 100(1-\eqn{\alpha})\% lower confidence bound.
 #' @export
 #' @examples
 #' myhre_rennie2(s=c(35, 97, 59), n=c(35, 100, 60), alpha=.10)
-myhre_rennie2 <- function(s, n, alpha, ...){
+myhre_rennie2 <- function(s, n, alpha, use.backup=FALSE, backup.method, ...){
   beta <- ifelse(mr.fun(beta=mean(n), s=s, n=n)==0, mean(n),
                  uniroot(f=mr.fun, interval=c(0, max(n)), s=s, n=n)$root)
   star <- n*( (beta + s)/( mean(n) + n) )
   star <- ifelse(star>s, s, star)
-  return(madansky(s=star, n=n, alpha=alpha))
+  out <- madansky(s=star, n=n, alpha=alpha)
+  if( (sum(s-n)==0) & use.backup  ) out <- backup.method(s=s, n=n, alpha=alpha)
+  return(out)
 }
 
 
@@ -455,11 +474,13 @@ rice_moore <- function(s, n, alpha, MonteCarlo, f.star=1.5 - min(n) + .5*sqrt((3
 #'
 #' @details If the "Download Histograms" button does not work, it can be fixed by launching the Shiny App on your local browser. This can be done by clicking on "Open in Browser" located at the top of your Shiny App. This seems to be an issue with the Download Handler that Shiny uses.
 #' @param MonteCarlo The number of Monte Carlo samples to take. E.g. In a Bayesian method, how many samples to take from a posterior distribution to estimate the lower \eqn{\alpha}-th quantile. The default value is 1000.
+#' @param use.backup If TRUE (default), then a backup.method in the will be used for the methods with calculate LCB = 1 in the case of no failures across all components. If FALSE, no backup.method is used.
+#' @param backup.method The backup method which is used for the methods which calculate LCB = 1 in the case of zero failures. The default is lindstrom_madden_AC.
 #' @export
 #' @example
 #' launch_app(MonteCarlo=1700)
-launch_app <- function(MonteCarlo = 1000){
-  shiny::shinyOptions(MonteCarlo = MonteCarlo)
+launch_app <- function(MonteCarlo = 1000, use.backup = TRUE, backup.method = lindstrom_madden_AC){
+  shiny::shinyOptions(MonteCarlo = MonteCarlo, use.backup = use.backup, backup.method = backup.method)
   shiny::runApp(appDir = system.file("app.R", package = "serieslcb"),
                 display.mode = "normal")
 }

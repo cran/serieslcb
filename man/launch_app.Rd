@@ -4,10 +4,15 @@
 \alias{launch_app}
 \title{Launch Shiny App}
 \usage{
-launch_app(MonteCarlo = 1000)
+launch_app(MonteCarlo = 1000, use.backup = TRUE,
+  backup.method = lindstrom_madden_AC)
 }
 \arguments{
 \item{MonteCarlo}{The number of Monte Carlo samples to take. E.g. In a Bayesian method, how many samples to take from a posterior distribution to estimate the lower \eqn{\alpha}-th quantile. The default value is 1000.}
+
+\item{use.backup}{If TRUE (default), then a backup.method in the will be used for the methods with calculate LCB = 1 in the case of no failures across all components. If FALSE, no backup.method is used.}
+
+\item{backup.method}{The backup method which is used for the methods which calculate LCB = 1 in the case of zero failures. The default is lindstrom_madden_AC.}
 }
 \description{
 Launches an instance of an R Shiny App, which runs locally on the user's computer.

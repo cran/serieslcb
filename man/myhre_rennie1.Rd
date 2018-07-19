@@ -2,9 +2,9 @@
 % Please edit documentation in R/functions.R
 \name{myhre_rennie1}
 \alias{myhre_rennie1}
-\title{Myhre and Rennie method 1}
+\title{Myhre and Rennie (modified ML) method}
 \usage{
-myhre_rennie1(s, n, alpha, ...)
+myhre_rennie1(s, n, alpha, use.backup = FALSE, backup.method, ...)
 }
 \arguments{
 \item{s}{Vector of successes.}
@@ -13,13 +13,17 @@ myhre_rennie1(s, n, alpha, ...)
 
 \item{alpha}{The significance level; to calculate a 100(1-\eqn{\alpha})\% lower confidence bound.}
 
+\item{use.backup}{If TRUE, then a backup.method in the will be used for the methods with calculate LCB = 1 in the case of no failures across all components. If FALSE (default), no backup.method is used.}
+
+\item{backup.method}{The backup method which is used for the methods which calculate LCB = 1 in the case of zero failures. Use function name.}
+
 \item{...}{Additional arguments to be ignored.}
 }
 \value{
 The 100(1-\eqn{\alpha})\% lower confidence bound.
 }
 \description{
-Calculate a binomial series lower confidence bound using the Myhre-Rennie 1 method (1986).
+Calculate a binomial series lower confidence bound using the Myhre-Rennie (modified ML) method (1986).
 }
 \examples{
 myhre_rennie1(s=c(35, 97, 59), n=c(35, 100, 60), alpha=.10)
