@@ -1,7 +1,8 @@
-d62fc9d977a2db6c8eb5e3f922886ddf *DESCRIPTION
+66561d9b9c9bece2e32aed500dfb6770 *DESCRIPTION
 a3cf0d0cdad6ab432c299d48a8fb0907 *NAMESPACE
-38b45aa1a53b7c839df1370e69f15921 *R/functions.R
-624e7c9619cdfd1480ee9791b70e8b89 *inst/app.R
+ba8dfafefff630c7bd7d03417d70ec49 *R/functions.R
+79e8758c65e7bfc85b7594b836ceb54a *inst/app.R
+48d3f9b02ee0a5f531c95ddc2e2ef38d *inst/www/deltacoveragedefinitions.png
 b0327e7f97c237215060e099fb5ab686 *man/bayes.Rd
 42b47503547cb9e42e2b49069d053e28 *man/bayes_jeffreys.Rd
 e4d797bb4fa40ce1634f76ce9d07e8bf *man/bayes_uniform.Rd
@@ -23,3 +24,4 @@ fbb673b020d180e497880e490c4c2bbb *man/myhre_rennie2.Rd
 b7fb980e4a915eb1dd75d9a17e527a7d *man/normal_approximation.Rd
 981fb480484aac63bafea5d293e42ae6 *man/pm.Rd
 8af892aa49a425e9f09b9ef7dd0d0632 *man/rice_moore.Rd
+5f37302b23352a04152be966b657d6b3 *man/rmse.LCB.Rd

@@ -30,6 +30,7 @@
     cov0.mat <- array(NA, dim=c(num.p, M), dimnames=list(p.names, M.names))
     cov.minus.mat <- array(NA, dim=c(num.p, M), dimnames=list(p.names, M.names))
     cov.plus.mat <- array(NA, dim=c(num.p, M), dimnames=list(p.names, M.names))
+    rmse.mat <- array(NA, dim=c(num.p, M), dimnames=list(p.names, M.names))
 
     delta.fix <- delta
     delta.hold <- 0 #place-holding delta, because may increase delta
@@ -40,6 +41,8 @@
     out.list.ind <- 1
     out <- list(NULL)
     prepare.to.break <- FALSE
+
+
     ## this newer "best" is going to be the RANKED version.
     ## The user's delta value is the largest tolerable delta value to pass a method
     ## Any methods that pass for this largest value will be ranked according to their
@@ -80,8 +83,9 @@
                                  colMeans(cov.minus.mat), colMeans(cov.plus.mat))
                 summary <- rbind(summary, rep(delta.hold, ncol(summary)))
                 rownames(summary) <- c("Average LCB", "Coverage", "Delta Coverage (minus)",
-                                       "Delta Coverage (plus)", "Delta Value")
-                out.list[[out.list.ind]] <- cbind(summary[c(1,2,5), s, drop=FALSE])
+                                       "Delta Coverage (plus)", "Best Delta Value")
+                #out.list[[out.list.ind]] <- cbind(summary[c(1,2,5), s, drop=FALSE])
+                out.list[[out.list.ind]] <- cbind(summary[c(5), s, drop=FALSE])
                 out.list.ind <- out.list.ind + 1
 
                 ranked.methods <- c(ranked.methods, this.method)
@@ -103,61 +107,112 @@
     }
 
 
-    ## this version of "best" is our original version; just output the methods that passed for
-    ## the user's choice of delta, and IF no method passes at the level to increase it until
-    ## at least one method passes
-    #if(mode=="best"){
+
+    ## the alternative mode to rank the methods
+    ## to pass, the method must have coverage at least 1-alpha for all R grid points
+    ## then calculate the RMSE and average across all R grid points
+    ## the method with the lowest average RMSE is ranked better
+    if(mode=="rmse"){
+      for(j in 1:num.p){
+        Rs <- prod(p.mat[j,])
+        LCB.mat <- big.list[[j]]
+        LCB.avg.mat[j,] <- colMeans(LCB.mat)
+        cov0.mat[j,] <- colMeans(apply(X=LCB.mat, MARGIN=2, FUN="<", Rs)) #regular coverage
+        rmse.mat[j,] <- apply(X=LCB.mat, MARGIN=2, FUN=rmse.LCB, R=Rs)
+      }
+
+      avg.rmse <- colMeans(rmse.mat) #average the RMSE's across the R grid points
+
+
+      # check which methods have coverage greater than or equal 1-alpha across all R grid points
+      # this is a vector of T and F corresponding to methods which made it
+      isit <- apply(X=cov0.mat, MARGIN=2, FUN=">=", 1-alpha)
+      if(is.null(dim(isit))) isit <- t(isit)
+      made.it <- colSums(isit) == num.p
+
+      names.made.it <- M.names[made.it]
+      rmse.made.it <- avg.rmse[made.it]
+      to.display <- names.made.it[order(rmse.made.it)]
+      sorted.rmse.made.it <- sort(rmse.made.it)
+
+
+      listy <- vector("list", length=length(made.it))
+      for(j in 1:sum(made.it)){
+        flannel <- as.matrix(sorted.rmse.made.it[j])
+        rownames(flannel) <- "Average RMSE"
+        colnames(flannel) <- to.display[j]
+        listy[[j]] <- flannel
+      }
+
+      out <- listy
+      #out <- list(listy, sort(rmse.made.it))
+    }
+
+
+    ### Ranking the methods the same as Delta Coverage but with only criterion (3)
+    ## that is, only consider methods that standard coverage at least 1-alpha
+    ## then rank those methods according to the delta criterion
+    if(mode=="exact"){
       # calculate all LCB avg's and delta coverages
-     # while(length(who.made.it)==0){
-    #    delta.hold <- delta.hold+.0001
-    #    for(j in 1:num.p){
-    #      Rs <- prod(p.mat[j,])
-    #      LCB.mat <- big.list[[j]]
-    #      LCB.avg.mat[j,] <- colMeans(LCB.mat)
-    #      cov0.mat[j,] <- colMeans(apply(X=LCB.mat, MARGIN=2, FUN="<", Rs)) #regular coverage
-    #      cov.minus.mat[j,] <- colMeans(apply(X=LCB.mat, MARGIN=2, FUN="<", Rs-delta.hold)) #minus delta coverage
-    #      cov.plus.mat[j,] <- colMeans(apply(X=LCB.mat, MARGIN=2, FUN="<", Rs+delta.hold)) #plus delta coverage
-    #    }
 
-        #method is "good" if satisifies both coverage conditions across all p-vectors
-     #   first <- colSums((cov0.mat>=(1-alpha)) & (cov.minus.mat<(1-alpha)))
-    #    second <- colSums((cov0.mat<(1-alpha)) & (cov.plus.mat>=(1-alpha)))
-    #    made.it <- (first+second)>=num.p
-    #    who.made.it <- names(MASTER.list)[made.it]
-    #    if(delta.hold>1) break
-    #  }
+      while(is.null(out[[1]])){
+        if( delta.hold>=delta ){
+          delta.fix <- 1
+          prepare.to.break <- TRUE
+        }
 
-    #  if(delta.hold<=1){
-    #    summary <- rbind(colMeans(LCB.avg.mat), colMeans(cov0.mat),
-    #                     colMeans(cov.minus.mat), colMeans(cov.plus.mat))
-    #    summary <- rbind(summary, rep(delta.hold, ncol(summary)))
-    #    rownames(summary) <- c("Average LCB", "Coverage", "Delta Coverage (minus)",
-    #                           "Delta Coverage (plus)", "Delta Value")
-    #    out <- as.matrix(summary[,made.it, drop=FALSE])      }
+        while(delta.hold<delta.fix){
+          delta.hold <- delta.hold+.0001
+          for(j in 1:num.p){
+            Rs <- prod(p.mat[j,])
+            LCB.mat <- big.list[[j]]
+            LCB.avg.mat[j,] <- colMeans(LCB.mat)
+            cov0.mat[j,] <- colMeans(apply(X=LCB.mat, MARGIN=2, FUN="<", Rs)) #regular coverage
+            cov.minus.mat[j,] <- colMeans(apply(X=LCB.mat, MARGIN=2, FUN="<", Rs-delta.hold)) #minus delta coverage
+            #cov.plus.mat[j,] <- colMeans(apply(X=LCB.mat, MARGIN=2, FUN="<", Rs+delta.hold)) #plus delta coverage
+          }
 
-     # out <- as.matrix(colnames(out))
-    #  colnames(out) <- paste("Delta-best methods with delta=", round(delta.hold, 5), sep="")
-    #  rownames(out) <- as.character(1:nrow(out))
-    #}
+          #method is "good" if satisifies both coverage conditions across all p-vectors
+          first <- colSums((cov0.mat>=(1-alpha)) & (cov.minus.mat<(1-alpha)))
+          #second <- colSums((cov0.mat<(1-alpha)) & (cov.plus.mat>=(1-alpha)))
+          made.it <- (first)>=num.p
+          sum.made.it <- sum(made.it)
 
-    #if(mode=="all"){
-    #  for(j in 1:num.p){
-    #    Rs <- prod(p.mat[j,])
-    #    LCB.mat <- big.list[[j]]
-    #    LCB.avg.mat[j,] <- colMeans(LCB.mat)
-    #    cov0.mat[j,] <- colMeans(apply(X=LCB.mat, MARGIN=2, FUN="<", Rs)) #regular coverage
-    #    cov.minus.mat[j,] <- colMeans(apply(X=LCB.mat, MARGIN=2, FUN="<", Rs-delta)) #minus delta coverage
-    #    cov.plus.mat[j,] <- colMeans(apply(X=LCB.mat, MARGIN=2, FUN="<", Rs+delta)) #plus delta coverage
-    #  }
+          if(sum.made.it>0){
+            for(s in which(made.it)){
+              this.method <- M.names[s]
+              if(!(this.method %in% ranked.methods)){
+                summary <- rbind(colMeans(LCB.avg.mat), colMeans(cov0.mat),
+                                 colMeans(cov.minus.mat))
+                summary <- rbind(summary, rep(delta.hold, ncol(summary)))
+                rownames(summary) <- c("Average LCB", "Coverage", "Delta Coverage (minus)",
+                                       "Best Delta Value")
+                #out.list[[out.list.ind]] <- cbind(summary[c(1,2,5), s, drop=FALSE])
+                out.list[[out.list.ind]] <- cbind(summary[c(4), s, drop=FALSE])
+                out.list.ind <- out.list.ind + 1
 
-      #summary <- rbind(colMeans(LCB.avg.mat), colMeans(cov0.mat),
-      #                 colMeans(cov.minus.mat), colMeans(cov.plus.mat))
-      #summary <- rbind(summary, rep(delta, ncol(summary)))
-      #rownames(summary) <- c("Average LCB", "Coverage", "Delta Coverage (minus)",
-      #                       "Delta Coverage (plus)", "Delta Value")
-      #out <- as.matrix(summary)
-    #}
+                ranked.methods <- c(ranked.methods, this.method)
+                ranked.deltas <- c(ranked.deltas, delta.hold)
 
+              }
+            }
+          }
+          if(prepare.to.break){
+            if(!is.null(out.list[[1]])) break
+          }
+
+        }
+
+        out <- out.list
+
+      }
+
+    }
+
+
+
+    ## detailed output of all summary statistics;
+    ## delta coverage is calculated based on input delta value
     if(mode=="detailed"){
       for(j in 1:num.p){
         Rs <- prod(p.mat[j,])
@@ -166,6 +221,7 @@
         cov0.mat[j,] <- colMeans(apply(X=LCB.mat, MARGIN=2, FUN="<", Rs)) #regular coverage
         cov.minus.mat[j,] <- colMeans(apply(X=LCB.mat, MARGIN=2, FUN="<", Rs-delta)) #minus delta coverage
         cov.plus.mat[j,] <- colMeans(apply(X=LCB.mat, MARGIN=2, FUN="<", Rs+delta)) #plus delta coverage
+        #rmse.mat[j,] <- apply(X=LCB.mat, MARGIN=2, FUN=rmse.LCB)
       }
 
       listy <- vector("list", length=num.p)
@@ -243,10 +299,12 @@
                        )
                      ),
 
+                     img(src='deltacoveragedefinitions.png', align = "right", width=450),
+
 
                      radioButtons(inputId = "radio", label = "Display Options",
-                                  choices = c("Delta-Best Methods" = "best",
-                                              #"All Selected Methods" = "all",
+                                  choices = c("Best Delta Coverage Methods (criteria (*) and (**))" = "best",
+                                              "Best Delta Coverage Methods (criterion (*) only)" = "exact",
                                               "Detailed Output" = "detailed") ),
 
                      actionButton(inputId = "submit",
@@ -375,14 +433,16 @@
     observeEvent(eventExpr = input$"submit", priority = 2, handlerExpr = {
       req( prod(user$state)==1 ) #require valid inputs and at least one checked box
 
-      thing <- vector(mode="list", length=4)
+      thing <- vector(mode="list", length=5)
       thing[[1]] <- user$"Rs.int"
       thing[[2]] <- user$"n"
       thing[[3]] <- user$"nsim"
       thing[[4]] <- user$"seed"
+      thing[[5]] <- user$"alpha"
       new.name <- paste(unlist(thing), collapse="/")
 
-      if(new.name != hold$"name"){ #if need to refresh everything
+      #if need to refresh so all LCB's are re-calculated; e.g. data sims change, alpha changes...
+      if(new.name != hold$"name"){
         #hold$"checkbox" <- rep(0, length(MASTER.list))
         hold$"name" <- new.name
 
@@ -415,7 +475,7 @@
 
     # main function; calculates LCB's and the summary
     # invalidates every time "submit" is pressed, even if no inputs change
-    # note reactives() are executed after observes()
+    # note reactives() are executed AFTER observes()
     handle <- eventReactive(eventExpr = input$"submit", valueExpr = {
       req( prod(user$"state")==1 )
 
@@ -533,7 +593,7 @@
     output$"summary.text" <- renderPrint({
       #req( handle() )
       summary <- handle()$"summary"
-      delta.vec <- do.call(cbind, summary)[3,]
+      delta.vec <- do.call(cbind, summary)[1,]
 
       if(is.null(delta.vec)){
         out <- "No methods passed."
@@ -551,19 +611,34 @@
     output$"delta.message" <- renderPrint({
       #req( handle() )
       summary <- handle()$"summary"
-      delta.vec <- do.call(cbind, summary)[3,]
+      delta.vec <- do.call(cbind, summary)[1,]
 
       #if(length(delta.vec)==0) out <- "Consider a larger value of delta."
-      if(length(delta.vec)>0) out <- "Displaying all methods (in ranked order) which passed for a delta smaller input delta value."
+      #if(length(delta.vec)>0) out <- "Displaying all methods (ranked according to their best delta value) which passed for a delta smaller than the input delta value. Both criteria (*) and (**) were used."
+      if(user$"radio" == "best"){
+        out <- "Displaying all methods (ranked according to their best delta value) which passed for a delta smaller than the input delta value. Both criteria (*) and (**) were used."
+        if(delta.vec[1]>user$"delta") out <- "Displaying the best method(s). Note that delta was increased by .0001 until at least one method passed. Both criteria (*) and (**) were used."
+      }
 
-      if(delta.vec[1]>user$"delta") out <- "Displaying the best method(s). Note that delta was increased by .0001 until at least one method passed."
+      if(user$"radio" == "exact"){
+        out <- "Displaying all methods (ranked according to their best delta value) which passed for a delta smaller than the input delta value. Only criterion (*) was used."
+        if(delta.vec[1]>user$"delta") out <- "Displaying the best method(s). Note that delta was increased by .0001 until at least one method passed. Only criterion (*) was used."
+      }
 
       if(user$"radio" == "detailed"){
         out <- "Results for each p-vector combination are displayed. Delta coveraged are calculated using the input delta value."
       }
 
+
+
       cat(out)
     })
+
+
+    ## function to make prettier breakpoints in the histogram function
+    #LCB.breaks <- function(){
+    #
+    #}
 
 
     ## function to calculate histograms based on handle()$"results"
@@ -583,14 +658,40 @@
       colnames(df) <- c("Combo ID", "p-vector")
       gplots::textplot(df, show.rownames = FALSE) # in "gplots" package...
 
+      ## collect all histogram data and determine appropriate xlim and ylim
+      ## this is to make all histograms looks "pretty" and comparable to one another
+      x.min <- NULL
+      x.max <- NULL
+      y.max <- NULL
+      for(j in 1:num.methods){
+        for(i in 1:nrow(p.mat)){
+          h <- hist(big.list[[i]][,j], plot=FALSE, breaks=seq(.34, 1, .02))
+          h$counts <- h$counts / sum(h$counts)
+          y.max <- max(y.max, max(h$counts))
+          x.min <- min(c(x.min, big.list[[i]][,j]))
+          x.max <- max(c(x.max, big.list[[i]][,j]))
+        }
+      }
+      nice.seq <- seq(0, 1, .02)
+      x.min <- max(c(0, nice.seq[max(which(nice.seq < x.min))] - .06))
+      x.max <- min(c(1, nice.seq[min(which(nice.seq > x.max))] + .06))
+      y.max <- y.max + .06
 
       for(j in 1:num.methods){
         counter <- 0
         for(i in 1:nrow(p.mat)){
           counter <- counter + 1
           R.true <- prod(p.mat[i,])
-          hist(big.list[[i]][,j], xlab="LCB", main=paste(method.names[j], "\np-vector Combination", counter))
-          points(c(R.true, R.true), c(0, user$"nsim"), type='l', col="red", lwd=2)
+          ## calculate relative frequencies... not sure how to make more pretty in general though
+          h <- hist(big.list[[i]][,j], plot=FALSE, breaks=seq(x.min, x.max, .02))
+          h$counts <- h$counts / sum(h$counts)
+          plot(h, freq=TRUE, ylab="Relative Frequency", xlab="LCB",
+               xlim=c(x.min, x.max), ylim=c(0, y.max),
+               main=paste(method.names[j], "\np-vector Combination", counter))
+          abline(v=R.true, col="red")
+
+          #hist(big.list[[i]][,j], xlab="LCB", main=paste(method.names[j], "\np-vector Combination", counter))
+          #points(c(R.true, R.true), c(0, user$"nsim"), type='l', col="red", lwd=2)
         }
       }
 

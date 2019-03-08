@@ -468,6 +468,20 @@ rice_moore <- function(s, n, alpha, MonteCarlo, f.star=1.5 - min(n) + .5*sqrt((3
   return(sort(Rs)[alpha*MonteCarlo])
 }
 
+#' Root Mean Square Error
+#'
+#' Calculate the root mean squared errors of the LCB's from the true system reliability. A measure of spread.
+#'
+#' @param LCB Vector of LCB's.
+#' @param R The true system reliability .
+#' @return The root mean squared error of the LCB's from the true system reliability.
+#' @export
+rmse.LCB <- function(LCB, R){
+  sqrt(sum((LCB - R)^2))
+}
+
+
+
 #' Launch Shiny App
 #'
 #' Launches an instance of an R Shiny App, which runs locally on the user's computer.
