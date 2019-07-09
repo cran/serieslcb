@@ -18,7 +18,7 @@ The \eqn{2^m} by \eqn{m} matrix of \emph{p}-vector combinations.
 Calculate a matrix of \emph{p}-vector combinations (component reliabilities) which lie in the specified interval of system reliability. Rows correspond to \emph{p}-vectors and columns correspond to components.
 }
 \details{
-Denote Rs.int \eqn{= (R_L, R_U)}. This function calculates all elements of the set \deqn{\Omega ' = \{(p_1, p_2, \dots , p_m): p_i = R_L^{1/m} { or } R_U^{1/m} \forall i \}}
+Denote Rs.int \eqn{= (R_L, R_U)}. This function calculates all elements of the set \deqn{\Omega ' = \{(p_1, p_2, \dots , p_m): p_i = R_L^{1/m} { or } R_U^{1/m} \forall i \}}.
 }
 \examples{
 pm(Rs.int = c(.9, .95), m=3)

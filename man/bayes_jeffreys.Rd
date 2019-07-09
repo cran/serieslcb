@@ -2,7 +2,7 @@
 % Please edit documentation in R/functions.R
 \name{bayes_jeffreys}
 \alias{bayes_jeffreys}
-\title{Bayes' method (Jeffrey's prior)}
+\title{Bayesian method (Jeffrey's prior)}
 \usage{
 bayes_jeffreys(s, n, alpha, MonteCarlo, ...)
 }

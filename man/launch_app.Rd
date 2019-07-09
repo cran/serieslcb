@@ -5,7 +5,8 @@
 \title{Launch Shiny App}
 \usage{
 launch_app(MonteCarlo = 1000, use.backup = TRUE,
-  backup.method = lindstrom_madden_AC)
+  backup.method = lindstrom_madden_AC, sample.omega = "corners",
+  number = 50)
 }
 \arguments{
 \item{MonteCarlo}{The number of Monte Carlo samples to take. E.g. In a Bayesian method, how many samples to take from a posterior distribution to estimate the lower \eqn{\alpha}-th quantile. The default value is 1000.}
@@ -13,10 +14,16 @@ launch_app(MonteCarlo = 1000, use.backup = TRUE,
 \item{use.backup}{If TRUE (default), then a backup.method in the will be used for the methods with calculate LCB = 1 in the case of no failures across all components. If FALSE, no backup.method is used.}
 
 \item{backup.method}{The backup method which is used for the methods which calculate LCB = 1 in the case of zero failures. The default is lindstrom_madden_AC.}
+
+\item{sample.omega}{The method used to define component reliabilities. Can be only one of "corners" (default), "random", or "both". See Details below.}
+
+\item{number}{The number of component reliability vectors sampled if sample.omega = "random" or "both". Default is 50.}
 }
 \description{
 Launches an instance of an R Shiny App, which runs locally on the user's computer.
 }
 \details{
 If the "Download Histograms" button does not work, it can be fixed by launching the Shiny App on your local browser. This can be done by clicking on "Open in Browser" located at the top of your Shiny App. This seems to be an issue with the Download Handler that Shiny uses.
+
+Define \deqn{\Omega  = \{(p_1, p_2, \dots , p_m): \prod_{i=1}^m p_i \in [ R_L , R_U ] \}} and \deqn{\Omega ' = \{(p_1, p_2, \dots , p_m): p_i = R_L^{1/m} { or } R_U^{1/m} \forall i \}}. If sample.omega = "corners" (the default), then the elements of \deqn{\Omega '} are used for component reliabilities, of which there are \deqn{2^m} combinations. If sample.omega = "random", then each component reliability is sampled uniformly from the interval \deqn{[ R_L^m , R_U^m ]}. If sample.omega = "both", then the results of "corners" and "random" are appended together and both are used.
 }

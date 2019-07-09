@@ -1,18 +1,25 @@
-  MASTER.list <- list(bayes_jeffreys, bayes_uniform, coit,
+  MASTER.list <- list(bayes_jeffreys, bayes_uniform,
+                      bayes_nlg, coit,
                       chao_huwang, easterling, lindstrom_madden, lindstrom_madden_AC,
                       madansky, mann_grubbs, normal_approximation,
                       myhre_rennie1, myhre_rennie2, nishime,
                       rice_moore)
-  names(MASTER.list) <- c("Bayes (Jeffrey's prior)", "Bayes (Uniform prior)", "Coit",
+  names(MASTER.list) <- c("Bayes (Jeffrey's prior)", "Bayes (Uniform prior)",
+                          "Bayes (Negative Log Gamma prior)", "Coit",
                           "Chao-Huwang", "Easterling", "Lindstrom-Madden (Clopper-Pearson)", "Lindstrom-Madden (Agresti-Coull)",
                           "Madansky", "Mann-Grubbs", "MLE Normal Approximation",
                           "Myhre-Rennie (modified ML)", "Myhre-Rennie (reliability invariant)", "Nishime",
                           "Rice-Moore")
 
 
+  ## grab options defined when launch_app() is executed
   MonteCarlo <- getShinyOption("MonteCarlo", default=1000)
   backup.method <- getShinyOption("backup.method", default=lindstrom_madden_AC)
   use.backup <- getShinyOption("use.backup", default=TRUE)
+  sample.omega <- getShinyOption("sample.omega", default="corners")
+  number <- getShinyOption("number", default=100)
+
+
 
 
   ## input is results from main() function
@@ -233,7 +240,7 @@
         rownames(foobar) <- c("Average LCB", "Coverage", "Delta Coverage (minus)",
                               "Delta Coverage (plus)", "Delta Value")
         listy[[j]] <- foobar
-        listy.pnames[j] <- paste(" p = (", paste(round(p.mat[j,], 3), collapse=", "), ") ", sep="")
+        listy.pnames[j] <- paste(" p = (", paste(round(p.mat[j,], 4), collapse=", "), ") ", sep="")
       }
       names(listy) <- listy.pnames
       out <- listy
@@ -284,6 +291,7 @@
                                                  label = "Methods",
                                                  choices= c("Bayes (Jeffrey's prior)" = "Bayes (Jeffrey's prior)",
                                                             "Bayes (Uniform prior)" = "Bayes (Uniform prior)",
+                                                            "Bayes (Negative Log Gamma prior)" = "Bayes (Negative Log Gamma prior)",
                                                             "Coit" = "Coit",
                                                             "Chao-Huwang" = "Chao-Huwang",
                                                             "Easterling" = "Easterling",
@@ -352,6 +360,7 @@
                                                  label = "Methods",
                                                  choices= c("Bayes (Jeffrey's prior)" = "Bayes (Jeffrey's prior)",
                                                             "Bayes (Uniform prior)" = "Bayes (Uniform prior)",
+                                                            "Bayes (Negative Log Gamma prior)" = "Bayes (Negative Log Gamma prior)",
                                                             "Coit" = "Coit",
                                                             "Chao-Huwang" = "Chao-Huwang",
                                                             "Easterling" = "Easterling",
@@ -447,7 +456,15 @@
         hold$"name" <- new.name
 
         set.seed(seed = user$"seed")
-        p.mat <- pm(Rs.int=user$"Rs.int", m=length(user$"n"))
+
+        if(sample.omega == "corners") p.mat <- pm(Rs.int=user$"Rs.int", m=length(user$"n"))
+        if(sample.omega == "random") p.mat <- pm.random(Rs.int=user$"Rs.int", m=length(user$"n"), number=number)
+        if(sample.omega == "both"){
+          p.mat1 <- pm(Rs.int=user$"Rs.int", m=length(user$"n"))
+          p.mat2 <- pm.random(Rs.int=user$"Rs.int", m=length(user$"n"), number=number)
+          p.mat <- rbind(p.mat1, p.mat2)
+        }
+
         out <- vector(mode="list", length=nrow(p.mat))
         for(i in 1:nrow(p.mat)){
           out[[i]] <- matrix(rbinom(n=length(user$"n")*user$"nsim", size=rep(user$"n", user$"nsim"),

@@ -2,7 +2,7 @@
 % Please edit documentation in R/functions.R
 \name{bayes}
 \alias{bayes}
-\title{Bayes' method}
+\title{Bayesian method}
 \usage{
 bayes(s, n, alpha, MonteCarlo, beta.a, beta.b, ...)
 }

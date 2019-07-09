@@ -1,6 +1,6 @@
 exportPattern("^[[:alpha:]]+")
 
 import("shiny")
-importFrom("stats", "qbeta", "qchisq", "qnorm", "rbeta", "rbinom",
-             "rnorm", "uniroot")
+importFrom("stats", "dbinom", "qbeta", "qchisq", "qnorm", "rbeta", "rbinom",
+             "rnorm",  "runif", "rgamma", "uniroot")
 importFrom("gplots", "textplot")

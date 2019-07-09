@@ -5,7 +5,7 @@
 #' @param Rs.int Interval (or single number) of total system reliability.
 #' @param m Number of components.
 #' @return The \eqn{2^m} by \eqn{m} matrix of \emph{p}-vector combinations.
-#' @details Denote Rs.int \eqn{= (R_L, R_U)}. This function calculates all elements of the set \deqn{\Omega ' = \{(p_1, p_2, \dots , p_m): p_i = R_L^{1/m} { or } R_U^{1/m} \forall i \}}
+#' @details Denote Rs.int \eqn{= (R_L, R_U)}. This function calculates all elements of the set \deqn{\Omega ' = \{(p_1, p_2, \dots , p_m): p_i = R_L^{1/m} { or } R_U^{1/m} \forall i \}}.
 #' @export
 #' @examples
 #' pm(Rs.int = c(.9, .95), m=3)
@@ -23,7 +23,32 @@ pm <- function(Rs.int, m){
   return(out)
 }
 
-#' Bayes' method
+#' Matrix of \emph{p}-vector combinations sampled randomly.
+#'
+#' Randomly sample to build a matrix of \emph{p}-vector combinations (component reliabilities) which lie in the specified interval of system reliability. Rows correspond to \emph{p}-vectors and columns correspond to components.
+#'
+#' @param Rs.int Interval (or single number) of total system reliability.
+#' @param m Number of components.
+#' @param number The number of random samples to draw.
+#' @details
+#' @export
+#' @examples
+#' pm.random(Rs.int=c(.9, .95), m=3, number=100)
+pm.random <- function(Rs.int, m, number){
+  a <- min(Rs.int)^(1/m)
+  b <- max(Rs.int)^(1/m)
+  if(a==b) out <- rep(a, m)
+  if(a!=b){
+    out <- matrix(runif(n=m*number, min=a, max=b), nrow=number, ncol=m)
+    out <- out[order(apply(out, 1, prod)), ] # reorder in ascending prod(p_i) order
+  }
+  if(is.vector(out)) out <- t(out) #if only one p-combo, outputs as 1 row matrix
+  return(out)
+}
+
+
+
+#' Bayesian method
 #'
 #' Calculate a binomial series lower confidence bound using Bayes' method with a Beta prior distribution.
 #'
@@ -44,7 +69,7 @@ bayes <- function(s, n, alpha, MonteCarlo, beta.a, beta.b, ...){
   return(sort(Rs)[alpha*MonteCarlo])
 }
 
-#' Bayes' method (Jeffrey's prior)
+#' Bayesian method (Jeffrey's prior)
 #'
 #' Calculate a binomial series lower confidence bound using Bayes' method with Jeffrey's prior.
 #' @param s Vector of successes.
@@ -62,7 +87,7 @@ bayes_jeffreys <- function(s, n, alpha, MonteCarlo, ...){
   return(sort(Rs)[alpha*MonteCarlo])
 }
 
-#' Bayes' method (Uniform prior)
+#' Bayesian method (Uniform prior)
 #'
 #' Calculate a binomial series lower confidence bound using Bayes' method with a uniform prior distribution.
 #'
@@ -80,6 +105,56 @@ bayes_uniform <- function(s, n, alpha, MonteCarlo, ...){
   for(j in 1:MonteCarlo) Rs[j] <- prod(rbeta(n=length(n), shape1=s+1, shape2=n-s+1))
   return(sort(Rs)[alpha*MonteCarlo])
 }
+
+#' Sampling from Posterior of Negative Log Gamma prior and Binomial data.
+#'
+#' Randomly sample from the posterior distribution resulting from a NLG prior and Binomial data.
+#'
+#' @param sample.size The number of draws from the posterior distribution.
+#' @param shape The shape parameter for the NLG prior.
+#' @param scale The scale parameter for the NLG prior.
+#' @param s The number of successes for the binomial data (should be a scalar).
+#' @param n The number of tests for the binomial data (should be a scalar).
+#' @export
+#' @examples
+#' nlg.post.sample(sample.size=50, shape=.2, scale=1, s=29, n=30)
+nlg.post.sample <- function(sample.size, shape, scale, s, n){
+  out <- NULL
+  n.remaining <- sample.size - length(out)
+  while(n.remaining!=0){
+    p <- exp(-rgamma(n=n.remaining, shape=shape, scale=scale)) # sample from prior
+    u <- runif(n=n.remaining)
+    check <- dbinom(x=s, size=n, prob=p) / dbinom(x=s, size=n, prob=(s/n))
+    keep <- u<check
+    out <- c(out, p[keep])
+    n.remaining <- sample.size - length(out)
+  }
+  return(out)
+}
+
+#' Bayesian method (Negative Log Gamma Prior)
+#'
+#' Caclulate a binomal series lower confidence bound using Bayes' method with negative log gamma priors on the components, defined such that the prior on the system is a uniform distribution.
+#'
+#' @param s Vector of successes.
+#' @param n Vector of sample sizes.
+#' @param alpha The significance level; to calculate a 100(1-\eqn{\alpha})\% lower confidence bound.
+#' @param MonteCarlo Number of samples to draw from the posterior distribution for the Monte Carlo estimate.
+#' @param ... Additional arguments to be ignored.
+#' @return The 100(1-\eqn{\alpha})\% lower confidence bound.
+#' @export
+#' @examples
+#' bayes_nlg(s=c(35, 97, 59), n=c(35, 100, 60), alpha=.10, MonteCarlo=1000)
+bayes_nlg <- function(s, n, alpha, MonteCarlo, ...){
+
+  mat <- matrix(NA, nrow=MonteCarlo, ncol=length(n)) # to save the post.nlg samples
+  for(i in 1:length(n)) mat[,i] <- nlg.post.sample(sample.size=MonteCarlo,
+                                                   shape=1/length(n), scale=1, s=s[i], n=n[i])
+
+  Rs <- apply(mat, 1, prod)
+  return(sort(Rs)[alpha*MonteCarlo])
+}
+
 
 
 #' Chao-Huwang method
@@ -324,7 +399,7 @@ myhre_rennie2 <- function(s, n, alpha, use.backup=FALSE, backup.method, ...){
   beta <- ifelse(mr.fun(beta=mean(n), s=s, n=n)==0, mean(n),
                  uniroot(f=mr.fun, interval=c(0, max(n)), s=s, n=n)$root)
   star <- n*( (beta + s)/( mean(n) + n) )
-  star <- ifelse(star>s, s, star)
+  star <- ifelse(star > n, n, star)
   out <- madansky(s=star, n=n, alpha=alpha)
   if( (sum(s-n)==0) & use.backup  ) out <- backup.method(s=s, n=n, alpha=alpha)
   return(out)
@@ -487,14 +562,18 @@ rmse.LCB <- function(LCB, R){
 #' Launches an instance of an R Shiny App, which runs locally on the user's computer.
 #'
 #' @details If the "Download Histograms" button does not work, it can be fixed by launching the Shiny App on your local browser. This can be done by clicking on "Open in Browser" located at the top of your Shiny App. This seems to be an issue with the Download Handler that Shiny uses.
+#'
+#' Define \deqn{\Omega  = \{(p_1, p_2, \dots , p_m): \prod_{i=1}^m p_i \in [ R_L , R_U ] \}} and \deqn{\Omega ' = \{(p_1, p_2, \dots , p_m): p_i = R_L^{1/m} { or } R_U^{1/m} \forall i \}}. If sample.omega = "corners" (the default), then the elements of \deqn{\Omega '} are used for component reliabilities, of which there are \deqn{2^m} combinations. If sample.omega = "random", then each component reliability is sampled uniformly from the interval \deqn{[ R_L^m , R_U^m ]}. If sample.omega = "both", then the results of "corners" and "random" are appended together and both are used.
 #' @param MonteCarlo The number of Monte Carlo samples to take. E.g. In a Bayesian method, how many samples to take from a posterior distribution to estimate the lower \eqn{\alpha}-th quantile. The default value is 1000.
 #' @param use.backup If TRUE (default), then a backup.method in the will be used for the methods with calculate LCB = 1 in the case of no failures across all components. If FALSE, no backup.method is used.
 #' @param backup.method The backup method which is used for the methods which calculate LCB = 1 in the case of zero failures. The default is lindstrom_madden_AC.
+#' @param sample.omega The method used to define component reliabilities. Can be only one of "corners" (default), "random", or "both". See Details below.
+#' @param number The number of component reliability vectors sampled if sample.omega = "random" or "both". Default is 50.
 #' @export
 #' @example
 #' launch_app(MonteCarlo=1700)
-launch_app <- function(MonteCarlo = 1000, use.backup = TRUE, backup.method = lindstrom_madden_AC){
-  shiny::shinyOptions(MonteCarlo = MonteCarlo, use.backup = use.backup, backup.method = backup.method)
+launch_app <- function(MonteCarlo = 1000, use.backup = TRUE, backup.method = lindstrom_madden_AC, sample.omega = "corners", number = 50){
+  shiny::shinyOptions(MonteCarlo = MonteCarlo, use.backup = use.backup, backup.method = backup.method, sample.omega = sample.omega, number = number)
   shiny::runApp(appDir = system.file("app.R", package = "serieslcb"),
                 display.mode = "normal")
 }
